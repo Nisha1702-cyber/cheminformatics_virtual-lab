@@ -70,7 +70,7 @@ def calculate_properties(mol):
     }
 def generate_multi_final_report(student_name, registration_number, molecule_records):
     buffer = BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=A4, leftMargin=28, rightMargin=28, topMargin=25, bottomMargin=25)
+    doc = SimpleDocTemplate(buffer, pagesize=A4, leftMargin=30, rightMargin=30, topMargin=30, bottomMargin=30)
     styles = getSampleStyleSheet()
     
     title_style = ParagraphStyle("RepTitle", parent=styles["Title"], fontSize=15, leading=18, alignment=TA_CENTER, textColor=HexColor("#17365D"))
@@ -84,18 +84,14 @@ def generate_multi_final_report(student_name, registration_number, molecule_reco
         Paragraph("MULTI-MOLECULE STUDENT ANALYSIS REPORT", heading_style),
         Paragraph(f"<b>Student:</b> {student_name or 'Not provided'} &nbsp;&nbsp;&nbsp; <b>Registration Number:</b> {registration_number or 'Not provided'}", body_style),
         Paragraph(f"<b>Number of molecules analyzed:</b> {len(molecule_records)}", body_style),
-        Spacer(1, 0.06 * inch)
+        Spacer(1, 0.05 * inch)
     ]
     
+    # Page 1: Molecule Information & Properties
     for index, record in enumerate(molecule_records, start=1):
         input_smiles, mol, properties = record
         
-        # Automatically page break if needed, or let it flow so it fits 4 pages nicely
-        if index > 1:
-            story.append(Spacer(1, 0.08 * inch))
-            
         story.append(Paragraph(f"Molecule {index}: Molecular Information", heading_style))
-        
         info_data = [
             ["Input SMILES", input_smiles],
             ["Canonical SMILES", Chem.MolToSmiles(mol)],
@@ -106,12 +102,12 @@ def generate_multi_final_report(student_name, registration_number, molecule_reco
         t_info.setStyle([
             ('BACKGROUND', (0,0), (-1,-1), HexColor("#F9F9F9")),
             ('GRID', (0,0), (-1,-1), 0.5, HexColor("#DDDDDD")),
-            ('PADDING', (0,0), (-1,-1), 2.5),
+            ('PADDING', (0,0), (-1,-1), 2),
             ('FONTNAME', (0,0), (-1,-1), 'Helvetica'),
             ('FONTSIZE', (0,0), (-1,-1), 7.5),
         ])
         story.append(t_info)
-        story.append(Spacer(1, 0.04 * inch))
+        story.append(Spacer(1, 0.03 * inch))
         
         story.append(Paragraph("Molecular Properties and Interpretation", heading_style))
         prop_data = [
@@ -126,19 +122,33 @@ def generate_multi_final_report(student_name, registration_number, molecule_reco
             ["QED Score", str(properties.get("QED Score (Drug-likeness)", "N/A")), "Drug-likeness quantitative estimate."],
             ["Lipinski Rule of 5", properties["Lipinski Rule of 5"], f"Violations: {properties['Violations']}"]
         ]
-        
         t_prop = Table(prop_data, colWidths=[1.8 * inch, 1.1 * inch, 4.0 * inch])
         t_prop.setStyle([
             ('BACKGROUND', (0,0), (-1,0), HexColor("#17365D")),
             ('TEXTCOLOR', (0,0), (-1,0), HexColor("#FFFFFF")),
             ('GRID', (0,0), (-1,-1), 0.5, HexColor("#DDDDDD")),
-            ('PADDING', (0,0), (-1,-1), 2.5),
+            ('PADDING', (0,0), (-1,-1), 2),
             ('FONTNAME', (0,0), (-1,-1), 'Helvetica'),
             ('FONTSIZE', (0,0), (-1,-1), 7),
         ])
         story.append(t_prop)
+        story.append(Spacer(1, 0.05 * inch))
     
-    # Push Python libraries and code strictly to the final (4th) page
+    # Page 2: Key Interpretation
+    story.append(PageBreak())
+    story.append(Paragraph("Key Interpretation", heading_style))
+    key_interp_text = (
+        "• <b>Molecular identity:</b> The submitted structures have been evaluated for their elemental composition and molecular weights.<br/>"
+        "• <b>Lipophilicity:</b> LogP values describe the balance between preference for non-polar and polar environments.<br/>"
+        "• <b>Molecular polarity:</b> TPSA reflects the contribution of polar atoms and functional groups to overall surface polarity.<br/>"
+        "• <b>Hydrogen bonding:</b> Donor and acceptor counts help describe potential intermolecular interactions.<br/>"
+        "• <b>Flexibility:</b> Rotatable bonds indicate the degree of conformational freedom available.<br/>"
+        "• <b>Overall conclusion:</b> Descriptors help understand composition, bonding, polarity, and structural character."
+    )
+    story.append(Paragraph(key_interp_text, body_style))
+    story.append(Spacer(1, 0.1 * inch))
+    
+    # Page 3: Python Libraries and Code
     story.append(PageBreak())
     story.append(Paragraph("Python Libraries Used and Their Importance", heading_style))
     lib_data = [
@@ -158,13 +168,13 @@ def generate_multi_final_report(student_name, registration_number, molecule_reco
         ('FONTSIZE', (0,0), (-1,-1), 7),
     ])
     story.append(t_lib)
-    story.append(Spacer(1, 0.06 * inch))
+    story.append(Spacer(1, 0.08 * inch))
     
     story.append(Paragraph("Illustrative Python Code", heading_style))
     code_text = (
         "from rdkit import Chem<br/>"
         "from rdkit.Chem import Descriptors, rdMolDescriptors<br/>"
-        "smiles_list = ['CCO', 'c1ccccc1', 'Oc1ccccc1']<br/>"
+        "smiles_list = ['CCO', 'c1ccccc1', 'Oc1ccccc1', 'CC(=O)Oc1ccccc1C(=O)O']<br/>"
         "for smiles in smiles_list:<br/>"
         "&nbsp;&nbsp;&nbsp;&nbsp;mol = Chem.MolFromSmiles(smiles)<br/>"
         "&nbsp;&nbsp;&nbsp;&nbsp;print(rdMolDescriptors.CalcMolFormula(mol))"
@@ -176,6 +186,7 @@ def generate_multi_final_report(student_name, registration_number, molecule_reco
     buffer.close()
     return pdf_data
 
+        
 # ============================================================
 # SIDEBAR NAVIGATION & BRANDING
 # ============================================================
