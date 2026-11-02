@@ -502,17 +502,16 @@ elif page == "📝 Assessment":
         elif q1:
             st.error("Incorrect. Try again!")
 
-
 # ============================================================
 # FINAL PROJECT REPORT
 # ============================================================
 
 elif page == "📄 Final Project Report":
     st.title("📄 Final Student Molecular Analysis Report")
-    name = st.text_input("Student Name for Report", value=st.session_state.get("student_name", ""))
-    reg = st.text_input("Registration Number for Report", value=st.session_state.get("registration_number", ""))
+    name = st.text_input("Student Name for Report", value=st.session_state.get("student_name", ""), key="rep_name")
+    reg = st.text_input("Registration Number for Report", value=st.session_state.get("registration_number", ""), key="rep_reg")
     
-    multi_smiles_text = st.text_area("Enter SMILES (one per line)", value=st.session_state.get("latest_smiles", "CCO"), height=100)
+    multi_smiles_text = st.text_area("Enter SMILES (one per line)", value=st.session_state.get("latest_smiles", "CCO"), height=100, key="rep_smiles")
     smiles_entries = [line.strip() for line in multi_smiles_text.splitlines() if line.strip()]
     
     molecule_records = []
@@ -521,11 +520,28 @@ elif page == "📄 Final Project Report":
         if m:
             molecule_records.append((s, m, calculate_properties(m)))
             
-    if molecule_records and st.button("📄 Generate Combined PDF Report"):
-        pdf = generate_multi_final_report(name, reg, molecule_records)
-        st.success("✅ Report generated successfully!")
-        st.download_button("⬇️ Download PDF Report", data=pdf, file_name="Cheminformatics_Report.pdf", mime="application/pdf")
-
+    if molecule_records:
+        st.success(f"{len(molecule_records)} valid molecule(s) ready.")
+        
+        if st.button("📄 Generate Combined PDF Report"):
+            try:
+                with st.spinner("Generating PDF report..."):
+                    st.session_state['pdf_data'] = generate_multi_final_report(name, reg, molecule_records)
+                st.success("✅ Report generated successfully!")
+            except Exception as e:
+                st.error(f"❌ Error generating PDF: {e}")
+        
+        # Download button is placed outside so it stays visible and works properly
+        if 'pdf_data' in st.session_state and st.session_state['pdf_data']:
+            st.download_button(
+                label="⬇️ Download PDF Report",
+                data=st.session_state['pdf_data'],
+                file_name="Cheminformatics_Report.pdf",
+                mime="application/pdf",
+                key="download_pdf_final"
+            )
+    else:
+        st.warning("Please enter at least one valid SMILES string.")
 
 # ============================================================
 # FOOTER
