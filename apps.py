@@ -32,6 +32,7 @@ def get_molecule(smiles):
         return None
     mol = Chem.MolFromSmiles(smiles.strip())
     return mol
+from rdkit.Chem.rdMolDescriptors import CalcMolFormula
 
 def calculate_properties(mol):
     if mol is None:
@@ -43,7 +44,7 @@ def calculate_properties(mol):
     h_acceptors = Descriptors.NumHAcceptors(mol)
     tpsa = Descriptors.TPSA(mol)
     rot_bonds = Descriptors.NumRotatableBonds(mol)
-    formula = Chem.MolFormulaToSmiles(mol)
+    formula = CalcMolFormula(mol)
     qed_score = QED.qed(mol)
     
     # Lipinski's Rule of 5 evaluation
@@ -67,6 +68,7 @@ def calculate_properties(mol):
         "Lipinski Rule of 5": lipinski_pass,
         "Violations": violations
     }
+
 
 def generate_multi_final_report(student_name, registration_number, molecule_records):
     buffer = BytesIO()
