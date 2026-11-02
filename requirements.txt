@@ -4,3 +4,4 @@ matplotlib
 py3Dmol
 rdkit
 reportlab
+numpy
