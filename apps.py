@@ -236,7 +236,7 @@ def display_3d_structure(mol3d, style):
     components.html(view._make_html(), height=620)  
     
     def generate_multi_final_report(student_name, registration_number, molecule_records):
-    buffer = BytesIO()
+    buffer = Bytes 1O()
     doc = SimpleDocTemplate(buffer, pagesize=A4, leftMargin=38, rightMargin=38, topMargin=40, bottomMargin=40)
     styles = getSampleStyleSheet()
     title_style = ParagraphStyle("MultiReportTitle", parent=styles["Title"], fontSize=19, leading=23, alignment=TA_CENTER, textColor=HexColor("#17365D"))
