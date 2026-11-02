@@ -233,9 +233,9 @@ def display_3d_structure(mol3d, style):
         view.setStyle({"sphere": {"scale": 1.0}})
     view.setBackgroundColor("white")
     view.zoomTo()
-    components.html(view._make_html(), height=620)
+    components.html(view._make_html(), height=620)  
     
-def generate_multi_final_report(student_name, registration_number, molecule_records):
+    def generate_multi_final_report(student_name, registration_number, molecule_records):
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4, leftMargin=38, rightMargin=38, topMargin=40, bottomMargin=40)
     styles = getSampleStyleSheet()
@@ -272,6 +272,7 @@ def generate_multi_final_report(student_name, registration_number, molecule_reco
     pdf_data = buffer.getvalue()
     buffer.close()
     return pdf_data
+
 
 # ============================================================
 # SIDEBAR NAVIGATION
