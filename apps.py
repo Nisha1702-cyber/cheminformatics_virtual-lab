@@ -70,26 +70,29 @@ def calculate_properties(mol):
     }
 def generate_multi_final_report(student_name, registration_number, molecule_records):
     buffer = BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=A4, leftMargin=30, rightMargin=30, topMargin=30, bottomMargin=30)
+    doc = SimpleDocTemplate(buffer, pagesize=A4, leftMargin=28, rightMargin=28, topMargin=25, bottomMargin=25)
     styles = getSampleStyleSheet()
     
-    title_style = ParagraphStyle("RepTitle", parent=styles["Title"], fontSize=16, leading=20, alignment=TA_CENTER, textColor=HexColor("#17365D"))
-    heading_style = ParagraphStyle("RepHeading", parent=styles["Heading1"], fontSize=11, leading=14, textColor=HexColor("#17365D"), spaceBefore=8, spaceAfter=4)
-    body_style = ParagraphStyle("RepBody", parent=styles["BodyText"], fontSize=8.5, leading=11, alignment=TA_JUSTIFY)
+    title_style = ParagraphStyle("RepTitle", parent=styles["Title"], fontSize=15, leading=18, alignment=TA_CENTER, textColor=HexColor("#17365D"))
+    heading_style = ParagraphStyle("RepHeading", parent=styles["Heading1"], fontSize=10.5, leading=13, textColor=HexColor("#17365D"), spaceBefore=6, spaceAfter=3)
+    body_style = ParagraphStyle("RepBody", parent=styles["BodyText"], fontSize=8, leading=10, alignment=TA_JUSTIFY)
+    code_style = ParagraphStyle("RepCode", parent=styles["BodyText"], fontName="Courier", fontSize=7, leading=9, textColor=HexColor("#222222"))
     
     story = [
         Paragraph("CHEMINFORMATICS VIRTUAL LABORATORY", title_style),
-        Spacer(1, 0.05 * inch),
+        Spacer(1, 0.03 * inch),
         Paragraph("MULTI-MOLECULE STUDENT ANALYSIS REPORT", heading_style),
         Paragraph(f"<b>Student:</b> {student_name or 'Not provided'} &nbsp;&nbsp;&nbsp; <b>Registration Number:</b> {registration_number or 'Not provided'}", body_style),
         Paragraph(f"<b>Number of molecules analyzed:</b> {len(molecule_records)}", body_style),
-        Spacer(1, 0.1 * inch)
+        Spacer(1, 0.06 * inch)
     ]
     
     for index, record in enumerate(molecule_records, start=1):
         input_smiles, mol, properties = record
+        
+        # Automatically page break if needed, or let it flow so it fits 4 pages nicely
         if index > 1:
-            story.append(PageBreak())
+            story.append(Spacer(1, 0.08 * inch))
             
         story.append(Paragraph(f"Molecule {index}: Molecular Information", heading_style))
         
@@ -99,16 +102,16 @@ def generate_multi_final_report(student_name, registration_number, molecule_reco
             ["Molecular Formula", properties["Molecular Formula"]],
             ["Molecular Weight", f"{properties['Molecular Weight']} g/mol"]
         ]
-        t_info = Table(info_data, colWidths=[2.2 * inch, 4.5 * inch])
+        t_info = Table(info_data, colWidths=[2.2 * inch, 4.7 * inch])
         t_info.setStyle([
             ('BACKGROUND', (0,0), (-1,-1), HexColor("#F9F9F9")),
             ('GRID', (0,0), (-1,-1), 0.5, HexColor("#DDDDDD")),
-            ('PADDING', (0,0), (-1,-1), 3),
+            ('PADDING', (0,0), (-1,-1), 2.5),
             ('FONTNAME', (0,0), (-1,-1), 'Helvetica'),
-            ('FONTSIZE', (0,0), (-1,-1), 8),
+            ('FONTSIZE', (0,0), (-1,-1), 7.5),
         ])
         story.append(t_info)
-        story.append(Spacer(1, 0.08 * inch))
+        story.append(Spacer(1, 0.04 * inch))
         
         story.append(Paragraph("Molecular Properties and Interpretation", heading_style))
         prop_data = [
@@ -120,22 +123,54 @@ def generate_multi_final_report(student_name, registration_number, molecule_reco
             ["H-Bond Donors", str(properties["H-Bond Donors"]), "Number of hydrogen bond donors."],
             ["H-Bond Acceptors", str(properties["H-Bond Acceptors"]), "Number of hydrogen bond acceptors."],
             ["Rotatable Bonds", str(properties["Rotatable Bonds"]), "Indicates molecular flexibility."],
-            ["QED Score", str(properties["QED Score (Drug-likeness)"]), "Drug-likeness quantitative estimate."],
+            ["QED Score", str(properties.get("QED Score (Drug-likeness)", "N/A")), "Drug-likeness quantitative estimate."],
             ["Lipinski Rule of 5", properties["Lipinski Rule of 5"], f"Violations: {properties['Violations']}"]
         ]
         
-        t_prop = Table(prop_data, colWidths=[1.8 * inch, 1.2 * inch, 3.7 * inch])
+        t_prop = Table(prop_data, colWidths=[1.8 * inch, 1.1 * inch, 4.0 * inch])
         t_prop.setStyle([
             ('BACKGROUND', (0,0), (-1,0), HexColor("#17365D")),
             ('TEXTCOLOR', (0,0), (-1,0), HexColor("#FFFFFF")),
             ('GRID', (0,0), (-1,-1), 0.5, HexColor("#DDDDDD")),
-            ('PADDING', (0,0), (-1,-1), 3),
+            ('PADDING', (0,0), (-1,-1), 2.5),
             ('FONTNAME', (0,0), (-1,-1), 'Helvetica'),
-            ('FONTSIZE', (0,0), (-1,-1), 7.5),
+            ('FONTSIZE', (0,0), (-1,-1), 7),
         ])
         story.append(t_prop)
-        story.append(Spacer(1, 0.1 * inch))
-        
+    
+    # Push Python libraries and code strictly to the final (4th) page
+    story.append(PageBreak())
+    story.append(Paragraph("Python Libraries Used and Their Importance", heading_style))
+    lib_data = [
+        ["Library", "Importance in this project"],
+        ["Streamlit", "Creates the interactive web app, input controls and PDF download interface."],
+        ["RDKit", "Parses SMILES, validates structures, and calculates molecular descriptors."],
+        ["Pandas", "Organizes molecular properties in tables and supports data handling."],
+        ["ReportLab", "Builds the downloadable PDF with tables and layout."]
+    ]
+    t_lib = Table(lib_data, colWidths=[1.8 * inch, 5.1 * inch])
+    t_lib.setStyle([
+        ('BACKGROUND', (0,0), (-1,0), HexColor("#17365D")),
+        ('TEXTCOLOR', (0,0), (-1,0), HexColor("#FFFFFF")),
+        ('GRID', (0,0), (-1,-1), 0.5, HexColor("#DDDDDD")),
+        ('PADDING', (0,0), (-1,-1), 2.5),
+        ('FONTNAME', (0,0), (-1,-1), 'Helvetica'),
+        ('FONTSIZE', (0,0), (-1,-1), 7),
+    ])
+    story.append(t_lib)
+    story.append(Spacer(1, 0.06 * inch))
+    
+    story.append(Paragraph("Illustrative Python Code", heading_style))
+    code_text = (
+        "from rdkit import Chem<br/>"
+        "from rdkit.Chem import Descriptors, rdMolDescriptors<br/>"
+        "smiles_list = ['CCO', 'c1ccccc1', 'Oc1ccccc1']<br/>"
+        "for smiles in smiles_list:<br/>"
+        "&nbsp;&nbsp;&nbsp;&nbsp;mol = Chem.MolFromSmiles(smiles)<br/>"
+        "&nbsp;&nbsp;&nbsp;&nbsp;print(rdMolDescriptors.CalcMolFormula(mol))"
+    )
+    story.append(Paragraph(code_text, code_style))
+    
     doc.build(story)
     pdf_data = buffer.getvalue()
     buffer.close()
