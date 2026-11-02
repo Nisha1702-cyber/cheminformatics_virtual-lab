@@ -106,7 +106,7 @@ def get_molecule(smiles):
 
 
 # ============================================================
-# NEW FEATURE 1: FUNCTIONAL GROUP IDENTIFIER
+# FUNCTIONAL GROUP IDENTIFIER
 # ============================================================
 
 def analyze_functional_groups(mol):
@@ -127,7 +127,7 @@ def analyze_functional_groups(mol):
 
 
 # ============================================================
-# NEW FEATURE 3: TANIMOTO SIMILARITY CALCULATOR
+# TANIMOTO SIMILARITY CALCULATOR
 # ============================================================
 
 def calculate_similarity_with_drugs(mol):
@@ -235,40 +235,6 @@ def display_3d_structure(mol3d, style):
     view.zoomTo()
     components.html(view._make_html(), height=620)
 
-def save_2d_structure_png(mol):
-    img = Draw.MolToImage(mol, size=(700, 500))
-    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
-    tmp.close()
-    img.save(tmp.name)
-    return tmp.name
-
-def save_3d_structure_png(mol):
-    import matplotlib.pyplot as plt
-    import numpy as np
-    mol3d = generate_3d_molecule(mol)
-    if mol3d is None:
-        return None
-    conf = mol3d.GetConformer()
-    coords = np.array([[conf.GetAtomPosition(i).x, conf.GetAtomPosition(i).y, conf.GetAtomPosition(i).z] for i in range(mol3d.GetNumAtoms())], dtype=float)
-    centered = coords - coords.mean(axis=0)
-    if mol3d.GetNumAtoms() >= 3:
-        _, _, vh = np.linalg.svd(centered, full_matrices=False)
-        projected = centered @ vh[:2].T
-    else:
-        projected = centered[:, :2]
-    
-    fig, ax = plt.subplots(figsize=(8.8, 6.4), facecolor="white")
-    ax.set_facecolor("white")
-    for i, atom in enumerate(mol3d.GetAtoms()):
-        x, y = projected[i]
-        ax.scatter(x, y, s=250, c="#3F3F3F", edgecolors="#222222")
-    ax.axis("off")
-    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
-    tmp.close()
-    fig.savefig(tmp.name, dpi=320, bbox_inches="tight", facecolor="white")
-    plt.close(fig)
-    return tmp.name
-
 def generate_multi_final_report(student_name, registration_number, molecule_records):
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4, leftMargin=38, rightMargin=38, topMargin=40, bottomMargin=40)
@@ -344,10 +310,7 @@ if page == "🏠 Home":
     st.markdown('<div class="main-title">🧪 Cheminformatics Virtual Laboratory</div>', unsafe_allow_html=True)
     st.markdown("""
         <div style="text-align:center; font-size:24px; font-weight:700; color:#1f4e79;">
-        SRM Institute of Science and Technology, Tiruchirappalli
-        </div>
-        <div style="text-align:center; font-size:18px; font-weight:600; margin-top:5px;">
-        Faculty of Engineering and Technology | School of Sciences | Division of Chemistry
+        Cheminformatics Virtual Laboratory Project
         </div>
         """, unsafe_allow_html=True)
     st.divider()
@@ -360,8 +323,8 @@ if page == "🏠 Home":
     })
     st.dataframe(example_df, use_container_width=True, hide_index=True)
     st.divider()
-    st.markdown("### 👨‍🏫 Developed by")
-    st.markdown("**Dr. R. Subramanian**\nAssistant Professor, Division of Chemistry, SRMIST Trichy")
+    st.markdown("### 👩‍💻 Developed by")
+    st.markdown("**Nisha Vaishnavi K**")
 
 
 # ============================================================
@@ -463,7 +426,7 @@ elif page == "💊 Drug-Likeness (Ro5)":
 
 
 # ============================================================
-# NEW FEATURE 1 PAGE: FUNCTIONAL GROUPS
+# FUNCTIONAL GROUPS
 # ============================================================
 
 elif page == "🔍 Functional Groups":
@@ -483,7 +446,7 @@ elif page == "🔍 Functional Groups":
 
 
 # ============================================================
-# NEW FEATURE 2 & 3 PAGE: QED & TANIMOTO SIMILARITY
+# DRUG SIMILARITY & QED
 # ============================================================
 
 elif page == "⚖️ Drug Similarity & QED":
@@ -569,4 +532,5 @@ elif page == "📄 Final Project Report":
 # ============================================================
 
 st.divider()
-st.caption("🧪 Cheminformatics Virtual Laboratory | Developed using Python, Streamlit and RDKit")
+st.caption("🧪 Cheminformatics Virtual Laboratory | Developed by Nisha Vaishnavi K")
+
