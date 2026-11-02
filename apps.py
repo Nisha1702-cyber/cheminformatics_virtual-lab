@@ -234,7 +234,7 @@ def display_3d_structure(mol3d, style):
     view.setBackgroundColor("white")
     view.zoomTo()
     components.html(view._make_html(), height=620)
-
+    
 def generate_multi_final_report(student_name, registration_number, molecule_records):
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4, leftMargin=38, rightMargin=38, topMargin=40, bottomMargin=40)
@@ -262,7 +262,7 @@ def generate_multi_final_report(student_name, registration_number, molecule_reco
             ["Canonical SMILES", Chem.MolToSmiles(mol)],
             ["Molecular Formula", properties["Molecular Formula"]],
             ["Molecular Weight", str(properties["Molecular Weight"]) + " g/mol"],
-            ["QED Score", str(properties["QED Score"])]
+            ["QED Score", str(properties.get("QED Score (Drug-likeness)", "N/A"))]
         ]
         t = Table(basic_data, colWidths=[2.0 * inch, 4.7 * inch])
         story.append(t)
@@ -272,7 +272,6 @@ def generate_multi_final_report(student_name, registration_number, molecule_reco
     pdf_data = buffer.getvalue()
     buffer.close()
     return pdf_data
-
 
 # ============================================================
 # SIDEBAR NAVIGATION
@@ -323,7 +322,7 @@ if page == "🏠 Home":
     })
     st.dataframe(example_df, use_container_width=True, hide_index=True)
     st.divider()
-    st.markdown("### 👩‍💻 Developed by")
+ 👩‍💻 Developed by")
     st.markdown("**Nisha Vaishnavi K**")
 
 
