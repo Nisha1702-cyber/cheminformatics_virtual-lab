@@ -68,40 +68,73 @@ def calculate_properties(mol):
         "Lipinski Rule of 5": lipinski_pass,
         "Violations": violations
     }
-
-
 def generate_multi_final_report(student_name, registration_number, molecule_records):
     buffer = BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=A4, leftMargin=38, rightMargin=38, topMargin=40, bottomMargin=40)
+    doc = SimpleDocTemplate(buffer, pagesize=A4, leftMargin=30, rightMargin=30, topMargin=30, bottomMargin=30)
     styles = getSampleStyleSheet()
-    title_style = ParagraphStyle("MultiReportTitle", parent=styles["Title"], fontSize=19, leading=23, alignment=TA_CENTER, textColor=HexColor("#17365D"))
-    heading_style = ParagraphStyle("MultiReportHeading", parent=styles["Heading1"], fontSize=13, leading=16, textColor=HexColor("#17365D"), spaceBefore=7, spaceAfter=7)
-    body_style = ParagraphStyle("MultiReportBody", parent=styles["BodyText"], fontSize=9, leading=12, alignment=TA_JUSTIFY)
+    
+    title_style = ParagraphStyle("RepTitle", parent=styles["Title"], fontSize=16, leading=20, alignment=TA_CENTER, textColor=HexColor("#17365D"))
+    heading_style = ParagraphStyle("RepHeading", parent=styles["Heading1"], fontSize=11, leading=14, textColor=HexColor("#17365D"), spaceBefore=8, spaceAfter=4)
+    body_style = ParagraphStyle("RepBody", parent=styles["BodyText"], fontSize=8.5, leading=11, alignment=TA_JUSTIFY)
     
     story = [
-        Spacer(1, 0.15 * inch),
         Paragraph("CHEMINFORMATICS VIRTUAL LABORATORY", title_style),
-        Spacer(1, 0.08 * inch),
+        Spacer(1, 0.05 * inch),
         Paragraph("MULTI-MOLECULE STUDENT ANALYSIS REPORT", heading_style),
-        Paragraph(f"Student: {student_name or 'Not provided'} &nbsp;&nbsp;&nbsp; Registration Number: {registration_number or 'Not provided'}", body_style),
-        Paragraph(f"Number of molecules analyzed: {len(molecule_records)}", body_style),
-        Spacer(1, 0.15 * inch)
+        Paragraph(f"<b>Student:</b> {student_name or 'Not provided'} &nbsp;&nbsp;&nbsp; <b>Registration Number:</b> {registration_number or 'Not provided'}", body_style),
+        Paragraph(f"<b>Number of molecules analyzed:</b> {len(molecule_records)}", body_style),
+        Spacer(1, 0.1 * inch)
     ]
     
     for index, record in enumerate(molecule_records, start=1):
         input_smiles, mol, properties = record
         if index > 1:
             story.append(PageBreak())
-        story.append(Paragraph(f"Molecule {index}: {input_smiles}", heading_style))
-        basic_data = [
+            
+        story.append(Paragraph(f"Molecule {index}: Molecular Information", heading_style))
+        
+        info_data = [
+            ["Input SMILES", input_smiles],
             ["Canonical SMILES", Chem.MolToSmiles(mol)],
             ["Molecular Formula", properties["Molecular Formula"]],
-            ["Molecular Weight", str(properties["Molecular Weight"]) + " g/mol"],
-            ["QED Score", str(properties.get("QED Score (Drug-likeness)", "N/A"))]
+            ["Molecular Weight", f"{properties['Molecular Weight']} g/mol"]
         ]
-        t = Table(basic_data, colWidths=[2.0 * inch, 4.7 * inch])
-        story.append(t)
-        story.append(Spacer(1, 0.15 * inch))
+        t_info = Table(info_data, colWidths=[2.2 * inch, 4.5 * inch])
+        t_info.setStyle([
+            ('BACKGROUND', (0,0), (-1,-1), HexColor("#F9F9F9")),
+            ('GRID', (0,0), (-1,-1), 0.5, HexColor("#DDDDDD")),
+            ('PADDING', (0,0), (-1,-1), 3),
+            ('FONTNAME', (0,0), (-1,-1), 'Helvetica'),
+            ('FONTSIZE', (0,0), (-1,-1), 8),
+        ])
+        story.append(t_info)
+        story.append(Spacer(1, 0.08 * inch))
+        
+        story.append(Paragraph("Molecular Properties and Interpretation", heading_style))
+        prop_data = [
+            ["Property", "Value", "Interpretation"],
+            ["Molecular Formula", properties["Molecular Formula"], "Shows elemental composition."],
+            ["Molecular Weight", str(properties["Molecular Weight"]), "Represents average molecular mass."],
+            ["LogP", str(properties["LogP"]), "Lipophilicity and partitioning behavior."],
+            ["TPSA (Å²)", str(properties["TPSA (Å²)"]), "Polar surface area for permeability."],
+            ["H-Bond Donors", str(properties["H-Bond Donors"]), "Number of hydrogen bond donors."],
+            ["H-Bond Acceptors", str(properties["H-Bond Acceptors"]), "Number of hydrogen bond acceptors."],
+            ["Rotatable Bonds", str(properties["Rotatable Bonds"]), "Indicates molecular flexibility."],
+            ["QED Score", str(properties["QED Score (Drug-likeness)"]), "Drug-likeness quantitative estimate."],
+            ["Lipinski Rule of 5", properties["Lipinski Rule of 5"], f"Violations: {properties['Violations']}"]
+        ]
+        
+        t_prop = Table(prop_data, colWidths=[1.8 * inch, 1.2 * inch, 3.7 * inch])
+        t_prop.setStyle([
+            ('BACKGROUND', (0,0), (-1,0), HexColor("#17365D")),
+            ('TEXTCOLOR', (0,0), (-1,0), HexColor("#FFFFFF")),
+            ('GRID', (0,0), (-1,-1), 0.5, HexColor("#DDDDDD")),
+            ('PADDING', (0,0), (-1,-1), 3),
+            ('FONTNAME', (0,0), (-1,-1), 'Helvetica'),
+            ('FONTSIZE', (0,0), (-1,-1), 7.5),
+        ])
+        story.append(t_prop)
+        story.append(Spacer(1, 0.1 * inch))
         
     doc.build(story)
     pdf_data = buffer.getvalue()
