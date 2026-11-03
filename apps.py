@@ -1,259 +1,295 @@
-import streamlit as st
+
+import os
 import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-from io import BytesIO
-
+import streamlit as st
 from rdkit import Chem
-from rdkit.Chem import Descriptors, AllChem, QED
-from rdkit.Chem.Draw import rdMolDraw2D
-
-from reportlab.lib.pagesizes import A4
-from reportlab.lib.units import inch
-from reportlab.lib.colors import HexColor
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, PageBreak
-
-# ============================================================
-# PAGE CONFIGURATION
-# ============================================================
-st.set_page_config(
-    page_title="Cheminformatics Virtual Laboratory",
-    page_icon="🧪",
-    layout="wide"
+from rdkit.Chem import Draw, Descriptors, rdMolDescriptors, QED
+from reportlab.lib.pagesizes import letter
+from reportlab.lib import colors
+from reportlab.platypus import (
+    SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image as RLImage, PageBreak
 )
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import inch
 
-# ============================================================
-# HELPER FUNCTIONS
-# ============================================================
-def get_molecule(smiles):
-    if not smiles:
+# ---------------------------------------------------------
+# Helper Functions for Chemistry Calculations
+# ---------------------------------------------------------
+def calculate_properties(smiles_str):
+    mol = Chem.MolFromSmiles(smiles_str)
+    if not mol:
         return None
-    mol = Chem.MolFromSmiles(smiles.strip())
-    return mol
-from rdkit.Chem.rdMolDescriptors import CalcMolFormula
-
-def calculate_properties(mol):
-    if mol is None:
-        return {}
     
+    # Calculate key cheminformatics descriptors
+    canonical_smiles = Chem.MolToSmiles(mol)
+    formula = rdMolDescriptors.CalcMolFormula(mol)
     mw = Descriptors.MolWt(mol)
     logp = Descriptors.MolLogP(mol)
-    h_donors = Descriptors.NumHDonors(mol)
-    h_acceptors = Descriptors.NumHAcceptors(mol)
     tpsa = Descriptors.TPSA(mol)
-    rot_bonds = Descriptors.NumRotatableBonds(mol)
-    formula = CalcMolFormula(mol)
+    hbd = rdMolDescriptors.CalcNumHBD(mol)
+    hba = rdMolDescriptors.CalcNumHBA(mol)
+    rotb = rdMolDescriptors.CalcNumRotatableBonds(mol)
     qed_score = QED.qed(mol)
     
-    # Lipinski's Rule of 5 evaluation
+    # Lipinski Rule of 5 evaluation
     violations = 0
     if mw > 500: violations += 1
     if logp > 5: violations += 1
-    if h_donors > 5: violations += 1
-    if h_acceptors > 10: violations += 1
+    if hbd > 5: violations += 1
+    if hba > 10: violations += 1
     
-    lipinski_pass = "Pass" if violations <= 1 else "Fail"
+    lipinski_status = "Pass" if violations <= 1 else "Fail"
     
     return {
-        "Molecular Formula": formula,
-        "Molecular Weight": round(mw, 2),
-        "LogP": round(logp, 2),
-        "H-Bond Donors": h_donors,
-        "H-Bond Acceptors": h_acceptors,
-        "TPSA (Å²)": round(tpsa, 2),
-        "Rotatable Bonds": rot_bonds,
-        "QED Score (Drug-likeness)": round(qed_score, 3),
-        "Lipinski Rule of 5": lipinski_pass,
-        "Violations": violations
+        "mol": mol,
+        "input_smiles": smiles_str,
+        "canonical_smiles": canonical_smiles,
+        "formula": formula,
+        "mw": round(mw, 2),
+        "logp": round(logp, 2),
+        "tpsa": round(tpsa, 2),
+        "hbd": hbd,
+        "hba": hba,
+        "rotb": rotb,
+        "qed": round(qed_score, 3),
+        "lipinski": lipinski_status,
+        "violations": violations
     }
-def generate_multi_final_report(student_name, registration_number, molecule_records):
-    buffer = BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=A4, leftMargin=30, rightMargin=30, topMargin=30, bottomMargin=30)
+
+def generate_structure_image(mol, filename="temp_mol.png"):
+    img = Draw.MolToImage(mol, size=(300, 200))
+    img.save(filename)
+    return filename
+
+# ---------------------------------------------------------
+# ReportLab PDF Generation Function
+# ---------------------------------------------------------
+def generate_enhanced_pdf(data_list, output_filename="Cheminformatics_Comprehensive_Report.pdf"):
+    doc = SimpleDocTemplate(
+        output_filename,
+        pagesize=letter,
+        rightMargin=36,
+        leftMargin=36,
+        topMargin=36,
+        bottomMargin=36
+    )
+    
     styles = getSampleStyleSheet()
     
-    title_style = ParagraphStyle("RepTitle", parent=styles["Title"], fontSize=15, leading=18, alignment=TA_CENTER, textColor=HexColor("#17365D"))
-    heading_style = ParagraphStyle("RepHeading", parent=styles["Heading1"], fontSize=10.5, leading=13, textColor=HexColor("#17365D"), spaceBefore=6, spaceAfter=3)
-    body_style = ParagraphStyle("RepBody", parent=styles["BodyText"], fontSize=8, leading=10, alignment=TA_JUSTIFY)
-    code_style = ParagraphStyle("RepCode", parent=styles["BodyText"], fontName="Courier", fontSize=7, leading=9, textColor=HexColor("#222222"))
-    
-    story = [
-        Paragraph("CHEMINFORMATICS VIRTUAL LABORATORY", title_style),
-        Spacer(1, 0.03 * inch),
-        Paragraph("MULTI-MOLECULE STUDENT ANALYSIS REPORT", heading_style),
-        Paragraph(f"<b>Student:</b> {student_name or 'Not provided'} &nbsp;&nbsp;&nbsp; <b>Registration Number:</b> {registration_number or 'Not provided'}", body_style),
-        Paragraph(f"<b>Number of molecules analyzed:</b> {len(molecule_records)}", body_style),
-        Spacer(1, 0.05 * inch)
-    ]
-    
-    # Page 1: Molecule Information & Properties
-    for index, record in enumerate(molecule_records, start=1):
-        input_smiles, mol, properties = record
+    # Custom Typography Styles
+    title_style = ParagraphStyle('DocTitle', parent=styles['Heading1'], fontSize=18, leading=22, textColor=colors.HexColor('#1A365D'), alignment=1, spaceAfter=10)
+    subtitle_style = ParagraphStyle('DocSubTitle', parent=styles['Normal'], fontSize=10, leading=14, textColor=colors.HexColor('#4A5568'), alignment=1, spaceAfter=15)
+    h1_style = ParagraphStyle('Heading1_Custom', parent=styles['Heading2'], fontSize=13, leading=16, textColor=colors.HexColor('#2B6CB0'), spaceBefore=10, spaceAfter=8)
+    body_style = ParagraphStyle('Body_Custom', parent=styles['Normal'], fontSize=9, leading=12, textColor=colors.HexColor('#2D3748'))
+    code_style = ParagraphStyle('Code_Style', parent=styles['Code'], fontSize=8, leading=10, textColor=colors.HexColor('#1A202C'), backColor=colors.HexColor('#EDF2F7'), borderPadding=6)
+
+    story = []
+
+    # ---------------------------------------------------------
+    # PAGE 1: Header & Molecular Tables with Structure Diagrams
+    # ---------------------------------------------------------
+    story.append(Paragraph("CHEMINFORMATICS VIRTUAL LABORATORY", title_style))
+    story.append(Paragraph("Comprehensive Analysis & Website Technical Report", subtitle_style))
+    story.append(Spacer(1, 10))
+
+    for idx, item in enumerate(data_list, 1):
+        story.append(Paragraph(f"Molecule {idx}: Structural Diagram & Descriptors", h1_style))
         
-        story.append(Paragraph(f"Molecule {index}: Molecular Information", heading_style))
-        info_data = [
-            ["Input SMILES", input_smiles],
-            ["Canonical SMILES", Chem.MolToSmiles(mol)],
-            ["Molecular Formula", properties["Molecular Formula"]],
-            ["Molecular Weight", f"{properties['Molecular Weight']} g/mol"]
-        ]
-        t_info = Table(info_data, colWidths=[2.2 * inch, 4.7 * inch])
-        t_info.setStyle([
-            ('BACKGROUND', (0,0), (-1,-1), HexColor("#F9F9F9")),
-            ('GRID', (0,0), (-1,-1), 0.5, HexColor("#DDDDDD")),
-            ('PADDING', (0,0), (-1,-1), 2),
-            ('FONTNAME', (0,0), (-1,-1), 'Helvetica'),
-            ('FONTSIZE', (0,0), (-1,-1), 7.5),
-        ])
-        story.append(t_info)
-        story.append(Spacer(1, 0.03 * inch))
+        # Save temporary molecule image
+        img_path = generate_structure_image(item['mol'], f"temp_mol_{idx}.png")
         
-        story.append(Paragraph("Molecular Properties and Interpretation", heading_style))
+        # Build Property Table Data
         prop_data = [
-            ["Property", "Value", "Interpretation"],
-            ["Molecular Formula", properties["Molecular Formula"], "Shows elemental composition."],
-            ["Molecular Weight", str(properties["Molecular Weight"]), "Represents average molecular mass."],
-            ["LogP", str(properties["LogP"]), "Lipophilicity and partitioning behavior."],
-            ["TPSA (Å²)", str(properties["TPSA (Å²)"]), "Polar surface area for permeability."],
-            ["H-Bond Donors", str(properties["H-Bond Donors"]), "Number of hydrogen bond donors."],
-            ["H-Bond Acceptors", str(properties["H-Bond Acceptors"]), "Number of hydrogen bond acceptors."],
-            ["Rotatable Bonds", str(properties["Rotatable Bonds"]), "Indicates molecular flexibility."],
-            ["QED Score", str(properties.get("QED Score (Drug-likeness)", "N/A")), "Drug-likeness quantitative estimate."],
-            ["Lipinski Rule of 5", properties["Lipinski Rule of 5"], f"Violations: {properties['Violations']}"]
+            [Paragraph("<b>Property</b>", body_style), Paragraph("<b>Value</b>", body_style), Paragraph("<b>Interpretation</b>", body_style)],
+            ["Formula", item["formula"], "Elemental composition"],
+            ["Molecular Weight", f"{item['mw']} g/mol", "Average molecular mass"],
+            ["LogP", str(item["logp"]), "Lipophilicity / Partitioning"],
+            ["TPSA", f"{item['tpsa']} Å²", "Polar surface area for permeability"],
+            ["H-Bond Donors / Acceptors", f"{item['hbd']} / {item['hba']}", "Intermolecular bonding capacity"],
+            ["Rotatable Bonds", str(item["rotb"]), "Conformational flexibility"],
+            ["QED Score", str(item["qed"]), "Quantitative Estimate of Drug-likeness"],
+            ["Lipinski Rule of 5", item["lipinski"], f"Violations: {item['violations']}"]
         ]
-        t_prop = Table(prop_data, colWidths=[1.8 * inch, 1.1 * inch, 4.0 * inch])
-        t_prop.setStyle([
-            ('BACKGROUND', (0,0), (-1,0), HexColor("#17365D")),
-            ('TEXTCOLOR', (0,0), (-1,0), HexColor("#FFFFFF")),
-            ('GRID', (0,0), (-1,-1), 0.5, HexColor("#DDDDDD")),
-            ('PADDING', (0,0), (-1,-1), 2),
-            ('FONTNAME', (0,0), (-1,-1), 'Helvetica'),
-            ('FONTSIZE', (0,0), (-1,-1), 7),
-        ])
-        story.append(t_prop)
-        story.append(Spacer(1, 0.05 * inch))
-    
-    # Page 2: Key Interpretation
+
+        t_table = Table(prop_data, colWidths=[1.8*inch, 1.0*inch, 2.2*inch])
+        t_table.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#2B6CB0')),
+            ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+            ('ALIGN', (0,0), (-1,-1), 'LEFT'),
+            ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0,0), (-1,-1), 8),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 4),
+            ('TOPPADDING', (0,0), (-1,-1), 4),
+            ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E0')),
+            ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#F7FAFC')])
+        ]))
+
+        # Place Diagram and Table Side-by-Side in a Layout Container
+        layout_grid = [
+            [RLImage(img_path, width=2.1*inch, height=1.4*inch), t_table]
+        ]
+        layout_table = Table(layout_grid, colWidths=[2.2*inch, 5.0*inch])
+        layout_table.setStyle(TableStyle([
+            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+            ('LEFTPADDING', (0,0), (-1,-1), 0),
+            ('RIGHTPADDING', (0,0), (-1,-1), 0),
+        ]))
+        
+        story.append(layout_table)
+        story.append(Spacer(1, 12))
+
     story.append(PageBreak())
-    story.append(Paragraph("Key Interpretation", heading_style))
-    key_interp_text = (
-        "• <b>Molecular identity:</b> The submitted structures have been evaluated for their elemental composition and molecular weights.<br/>"
-        "• <b>Lipophilicity:</b> LogP values describe the balance between preference for non-polar and polar environments.<br/>"
-        "• <b>Molecular polarity:</b> TPSA reflects the contribution of polar atoms and functional groups to overall surface polarity.<br/>"
-        "• <b>Hydrogen bonding:</b> Donor and acceptor counts help describe potential intermolecular interactions.<br/>"
-        "• <b>Flexibility:</b> Rotatable bonds indicate the degree of conformational freedom available.<br/>"
-        "• <b>Overall conclusion:</b> Descriptors help understand composition, bonding, polarity, and structural character."
-    )
-    story.append(Paragraph(key_interp_text, body_style))
-    story.append(Spacer(1, 0.1 * inch))
+
+    # ---------------------------------------------------------
+    # PAGE 2: Key Features & Platform Technology Details
+    # ---------------------------------------------------------
+    story.append(Paragraph("Virtual Laboratory Platform Key Features", h1_style))
     
-    # Page 3: Python Libraries and Code
-    story.append(PageBreak())
-    story.append(Paragraph("Python Libraries Used and Their Importance", heading_style))
-    lib_data = [
-        ["Library", "Importance in this project"],
-        ["Streamlit", "Creates the interactive web app, input controls and PDF download interface."],
-        ["RDKit", "Parses SMILES, validates structures, and calculates molecular descriptors."],
-        ["Pandas", "Organizes molecular properties in tables and supports data handling."],
-        ["ReportLab", "Builds the downloadable PDF with tables and layout."]
+    features_data = [
+        [Paragraph("<b>Key Feature</b>", body_style), Paragraph("<b>Functional Description</b>", body_style)],
+        ["Interactive SMILES Input", "Allows students/researchers to parse raw chemical strings into valid 2D spatial structures."],
+        ["Automated Descriptor Engine", "Instantly computes topological and physicochemical parameters using RDKit."],
+        ["Drug-Likeness Profiling", "Evaluates compounds against Lipinski's Rule of 5 and calculates QED scores."],
+        ["Visual Structure Rendering", "Generates high-resolution 2D chemical structure diagrams automatically."],
+        ["Exportable PDF Reports", "Compiles laboratory data into standardized academic-grade PDF documents."]
     ]
-    t_lib = Table(lib_data, colWidths=[1.8 * inch, 5.1 * inch])
-    t_lib.setStyle([
-        ('BACKGROUND', (0,0), (-1,0), HexColor("#17365D")),
-        ('TEXTCOLOR', (0,0), (-1,0), HexColor("#FFFFFF")),
-        ('GRID', (0,0), (-1,-1), 0.5, HexColor("#DDDDDD")),
-        ('PADDING', (0,0), (-1,-1), 2.5),
-        ('FONTNAME', (0,0), (-1,-1), 'Helvetica'),
-        ('FONTSIZE', (0,0), (-1,-1), 7),
-    ])
-    story.append(t_lib)
-    story.append(Spacer(1, 0.08 * inch))
     
-    story.append(Paragraph("Illustrative Python Code", heading_style))
-    code_text = (
-        "from rdkit import Chem<br/>"
-        "from rdkit.Chem import Descriptors, rdMolDescriptors<br/>"
-        "smiles_list = ['CCO', 'c1ccccc1', 'Oc1ccccc1', 'CC(=O)Oc1ccccc1C(=O)O']<br/>"
-        "for smiles in smiles_list:<br/>"
-        "&nbsp;&nbsp;&nbsp;&nbsp;mol = Chem.MolFromSmiles(smiles)<br/>"
-        "&nbsp;&nbsp;&nbsp;&nbsp;print(rdMolDescriptors.CalcMolFormula(mol))"
+    feat_table = Table(features_data, colWidths=[2.2*inch, 5.0*inch])
+    feat_table.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#2C5282')),
+        ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+        ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E0')),
+        ('TOPPADDING', (0,0), (-1,-1), 5),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 5),
+    ]))
+    story.append(feat_table)
+    story.append(Spacer(1, 15))
+
+    story.append(Paragraph("Technologies & Libraries Employed", h1_style))
+    tech_data = [
+        [Paragraph("<b>Technology / Library</b>", body_style), Paragraph("<b>Core Function in Platform</b>", body_style)],
+        ["Python", "Primary backend engine for handling computational chemistry workflows."],
+        ["Streamlit", "Web framework used to build the interactive virtual laboratory UI."],
+        ["RDKit", "Cheminformatics toolkit for structure parsing, image rendering, and descriptors."],
+        ["Pandas", "Structures tabular property outputs for seamlessly rendering data tables."],
+        ["ReportLab", "Programmatic PDF engine generating structured multi-page document outputs."]
+    ]
+    
+    tech_table = Table(tech_data, colWidths=[2.2*inch, 5.0*inch])
+    tech_table.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#2C5282')),
+        ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+        ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E0')),
+        ('TOPPADDING', (0,0), (-1,-1), 5),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 5),
+    ]))
+    story.append(tech_table)
+    story.append(Spacer(1, 15))
+
+    story.append(Paragraph("Key Interpretation & Analytical Findings", h1_style))
+    interp_text = (
+        "<b>Molecular Identity & Polarity:</b> The evaluated molecular structures reflect varied hydrogen bonding "
+        "and polar surface areas (TPSA). TPSA values below 140 Å² suggest favorable cell permeability.<br/>"
+        "<b>Drug-Likeness Evaluation:</b> QED and Lipinski indicators highlight the potential bioavailability "
+        "and pharmacological suitability of the submitted chemical compounds."
     )
-    story.append(Paragraph(code_text, code_style))
+    story.append(Paragraph(interp_text, body_style))
     
+    story.append(PageBreak())
+
+    # ---------------------------------------------------------
+    # PAGE 3: Technical Implementation & Python Source Code
+    # ---------------------------------------------------------
+    story.append(Paragraph("Virtual Laboratory Core Execution Code", h1_style))
+    story.append(Paragraph("The Python script below illustrates the workflow used to parse SMILES strings and calculate key descriptors programmatically:", body_style))
+    story.append(Spacer(1, 8))
+
+    sample_code = """# Core Cheminformatics Pipeline Implementation
+from rdkit import Chem
+from rdkit.Chem import Descriptors, rdMolDescriptors, QED
+
+def analyze_molecule(smiles: str):
+    # Parse SMILES String into Mol Object
+    mol = Chem.MolFromSmiles(smiles)
+    if not mol:
+        return None
+        
+    # Calculate Core Descriptors
+    data = {
+        'Formula': rdMolDescriptors.CalcMolFormula(mol),
+        'MW': Descriptors.MolWt(mol),
+        'LogP': Descriptors.MolLogP(mol),
+        'TPSA': Descriptors.TPSA(mol),
+        'QED': QED.qed(mol),
+        'HBD': rdMolDescriptors.CalcNumHBD(mol),
+        'HBA': rdMolDescriptors.CalcNumHBA(mol)
+    }
+    return data
+
+# Example Usage
+print(analyze_molecule('CC(=O)Oc1ccccc1C(=O)O'))"""
+
+    story.append(Paragraph(sample_code.replace('\n', '<br/>').replace(' ', '&nbsp;'), code_style))
+
+    # Build Document
     doc.build(story)
-    pdf_data = buffer.getvalue()
-    buffer.close()
-    return pdf_data
-
-        
-# ============================================================
-# SIDEBAR NAVIGATION & BRANDING
-# ============================================================
-st.sidebar.title("Navigation")
-page = st.sidebar.radio("Go to", ["🏠 Home", "📄 Final Project Report"])
-
-st.sidebar.markdown("---")
-st.sidebar.markdown("### 👩‍💻 Developed by")
-st.sidebar.markdown("**Nisha Vaishnavi K**")
-
-# ============================================================
-# MAIN APP ROUTING
-# ============================================================
-if page == "🏠 Home":
-    st.title("🧪 Cheminformatics Virtual Laboratory")
-    st.markdown("Explore molecular properties, 3D visualization, drug-likeness rules, functional groups, and advanced cheminformatics tools.")
     
-    st.markdown("### Example Molecules")
-    example_df = pd.DataFrame({
-        "Molecule": ["Ethanol", "Benzene", "Phenol", "Aspirin", "Caffeine", "Paracetamol"],
-        "SMILES": ["CCO", "c1ccccc1", "Oc1ccccc1", "CC(=O)Oc1ccccc1C(=O)O", "CN1C=NC2=C1C(=O)N(C(=O)N2C)C", "CC(=O)Nc1ccc(O)cc1"]
-    })
-    st.table(example_df)
-    
-    st.markdown("---")
-    st.markdown("### 👩‍💻 Developed by")
-    st.markdown("**Nisha Vaishnavi K**")
+    # Clean up temporary images
+    for idx in range(1, len(data_list) + 1):
+        temp_file = f"temp_mol_{idx}.png"
+        if os.path.exists(temp_file):
+            os.remove(temp_file)
 
-elif page == "📄 Final Project Report":
-    st.title("📄 Final Student Molecular Analysis Report")
-    name = st.text_input("Student Name for Report", value=st.session_state.get("student_name", ""), key="rep_name")
-    reg = st.text_input("Registration Number for Report", value=st.session_state.get("registration_number", ""), key="rep_reg")
+    return output_filename
+
+
+# ---------------------------------------------------------
+# Streamlit App UI
+# ---------------------------------------------------------
+st.set_page_config(page_title="Cheminformatics Virtual Lab", layout="wide")
+
+st.title("🧪 Cheminformatics Virtual Laboratory")
+st.markdown("Analyze molecular structures, compute physicochemical descriptors, and generate comprehensive PDF reports.")
+
+# Default input
+smiles_input = st.text_area("Enter SMILES Strings (one per line):", "Oc1ccccc1\nCC(=O)Oc1ccccc1C(=O)O")
+
+if st.button("Run Molecular Analysis & Generate Report"):
+    smiles_list = [s.strip() for s in smiles_input.split('\n') if s.strip()]
+    results = []
     
-    multi_smiles_text = st.text_area("Enter SMILES (one per line)", value=st.session_state.get("latest_smiles", "CCO"), height=100, key="rep_smiles")
-    smiles_entries = [line.strip() for line in multi_smiles_text.splitlines() if line.strip()]
-    
-    molecule_records = []
-    for s in smiles_entries:
-        m = get_molecule(s)
-        if m:
-            molecule_records.append((s, m, calculate_properties(m)))
+    for s in smiles_list:
+        res = calculate_properties(s)
+        if res:
+            results.append(res)
             
-    if molecule_records:
-        st.success(f"{len(molecule_records)} valid molecule(s) ready.")
+    if results:
+        st.success(f"Successfully processed {len(results)} molecule(s)!")
         
-        if st.button("📄 Generate Combined PDF Report"):
-            try:
-                with st.spinner("Generating PDF report..."):
-                    st.session_state['pdf_data'] = generate_multi_final_report(name, reg, molecule_records)
-                st.success("✅ Report generated successfully!")
-            except Exception as e:
-                st.error(f"❌ Error generating PDF: {e}")
+        # Display structures & data in Web UI
+        cols = st.columns(len(results))
+        for idx, res in enumerate(results):
+            with cols[idx]:
+                st.subheader(f"Molecule {idx+1}")
+                st.image(Draw.MolToImage(res['mol']), use_column_width=True)
+                st.json({
+                    "Formula": res["formula"],
+                    "MW": res["mw"],
+                    "LogP": res["logp"],
+                    "QED": res["qed"],
+                    "Lipinski": res["lipinski"]
+                })
         
-        if 'pdf_data' in st.session_state and st.session_state['pdf_data']:
+        # Generate PDF
+        pdf_path = generate_enhanced_pdf(results)
+        
+        with open(pdf_path, "rb") as pdf_file:
             st.download_button(
-                label="⬇️ Download PDF Report",
-                data=st.session_state['pdf_data'],
-                file_name="Cheminformatics_Report.pdf",
-                mime="application/pdf",
-                key="download_pdf_final"
+                label="📄 Download Comprehensive PDF Report",
+                data=pdf_file,
+                file_name="Cheminformatics_Virtual_Lab_Report.pdf",
+                mime="application/pdf"
             )
     else:
-        st.warning("Please enter at least one valid SMILES string.")
-        
-    st.markdown("---")
-    st.markdown("### 👩‍💻 Developed by")
-    st.markdown("**Nisha Vaishnavi K**")
-
-
-
+        st.error("Please enter valid SMILES strings.")
+```
