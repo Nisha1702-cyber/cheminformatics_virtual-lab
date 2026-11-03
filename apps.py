@@ -4,12 +4,10 @@ from rdkit import Chem
 from rdkit.Chem import Descriptors, rdMolDescriptors, QED
 from rdkit.Chem.Draw import rdMolDraw2D
 import io
-import os
-from PIL import Image
 
 # ReportLab imports for PDF generation
 from reportlab.lib.pagesizes import letter
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak, Image as RLImage
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 
@@ -129,7 +127,7 @@ def build_pdf_report(results, student_name, reg_no):
     
     story = []
     
-    # PAGE 1: Header & Molecular Data Tables with Images
+    # PAGE 1: Header & Molecular Data Tables
     story.append(Paragraph("CHEMINFORMATICS VIRTUAL LABORATORY", title_style))
     story.append(Paragraph(f"<b>MULTI-MOLECULE STUDENT ANALYSIS REPORT</b>", body_style))
     story.append(Paragraph(f"<b>Student:</b> {student_name} | <b>Registration Number:</b> {reg_no}", body_style))
@@ -139,7 +137,6 @@ def build_pdf_report(results, student_name, reg_no):
     for idx, data in enumerate(results, 1):
         story.append(Paragraph(f"<b>Molecule {idx}: Molecular Information & Structure</b>", h2_style))
         
-        # Table Data
         table_data = [
             ["Property", "Value", "Interpretation"],
             ["Input SMILES", data['smiles'], "User provided structural code"],
@@ -276,8 +273,28 @@ if smiles_input:
     if results:
         st.write("### Molecule Analysis Results")
         
-        # Display Molecules in Web UI
+        # Display Molecules in Web UI cleanly without NameError
         for idx, r in enumerate(results, 1):
             col1, col2 = st.columns([1, 2])
             with col1:
-                img
+                img_io = generate_molecule_image(r['mol'])
+                st.image(img_io, caption=f"Molecule {idx}: {r['formula']}")
+            with col2:
+                df_display = pd.DataFrame([
+                    {"Property": "Formula", "Value": r['formula']},
+                    {"Property": "MW", "Value": r['mw']},
+                    {"Property": "LogP", "Value": r['logp']},
+                    {"Property": "QED Score", "Value": r['qed']},
+                    {"Property": "Lipinski Status", "Value": r['lipinski']}
+                ])
+                st.table(df_display)
+        
+        # Generate PDF
+        pdf_buffer = build_pdf_report(results, student_name, reg_no)
+        
+        st.download_button(
+            label="📄 Download 3-Page PDF Report",
+            data=pdf_buffer,
+            file_name="Cheminformatics_Virtual_Lab_Report.pdf",
+            mime="application/pdf"
+        )
