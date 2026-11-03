@@ -7,7 +7,7 @@ import io
 
 # ReportLab imports for PDF generation
 from reportlab.lib.pagesizes import letter
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak, Image as RLImage
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 
@@ -17,13 +17,10 @@ st.set_page_config(page_title="Cheminformatics Virtual Laboratory", layout="wide
 st.title("🧪 Cheminformatics Virtual Laboratory")
 st.subheader("Automated Molecular Analysis & PDF Report Generation")
 
-# Student Details
-student_name = "Nisha Vaishnavi K"
-reg_no = "RA261103005031"
-
-st.sidebar.header("User Details")
-st.sidebar.text(f"Name: {student_name}")
-st.sidebar.text(f"Reg No: {reg_no}")
+# Student Details (Sidebar-ல் மாற்றி அமைக்கும் வசதியுடன்)
+st.sidebar.header("Student Details")
+student_name = st.sidebar.text_input("Student Name", value="Nisha Vaishnavi K")
+reg_no = st.sidebar.text_input("Registration Number", value="RA261103005031")
 
 # SMILES Input
 smiles_input = st.text_area(
@@ -127,7 +124,7 @@ def build_pdf_report(results, student_name, reg_no):
     
     story = []
     
-    # PAGE 1: Header & Molecular Data Tables
+    # PAGE 1: Header & Molecular Data Tables with Diagrams
     story.append(Paragraph("CHEMINFORMATICS VIRTUAL LABORATORY", title_style))
     story.append(Paragraph(f"<b>MULTI-MOLECULE STUDENT ANALYSIS REPORT</b>", body_style))
     story.append(Paragraph(f"<b>Student:</b> {student_name} | <b>Registration Number:</b> {reg_no}", body_style))
@@ -136,6 +133,13 @@ def build_pdf_report(results, student_name, reg_no):
     
     for idx, data in enumerate(results, 1):
         story.append(Paragraph(f"<b>Molecule {idx}: Molecular Information & Structure</b>", h2_style))
+        
+        # Add 2D Molecule Image to PDF
+        img_io = generate_molecule_image(data['mol'])
+        rl_img = RLImage(img_io, width=140, height=105)
+        rl_img.hAlign = 'CENTER'
+        story.append(rl_img)
+        story.append(Spacer(1, 5))
         
         table_data = [
             ["Property", "Value", "Interpretation"],
@@ -273,7 +277,6 @@ if smiles_input:
     if results:
         st.write("### Molecule Analysis Results")
         
-        # Display Molecules in Web UI cleanly without NameError
         for idx, r in enumerate(results, 1):
             col1, col2 = st.columns([1, 2])
             with col1:
@@ -289,7 +292,7 @@ if smiles_input:
                 ])
                 st.table(df_display)
         
-        # Generate PDF
+        # Generate PDF with dynamic student name & reg number
         pdf_buffer = build_pdf_report(results, student_name, reg_no)
         
         st.download_button(
